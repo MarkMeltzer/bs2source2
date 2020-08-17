@@ -1,0 +1,17 @@
+Requirements:
+
+- Umodelexport somewhere
+- python 3.6 or higher
+- Blender 2.80 or higher (and blender installation set as enviroment variable)
+- Blender3D Import psk psa addon (https://github.com/Befzz/blender3d_import_psk_psa)
+- pskx_to_fbx.py, vmat_template.txt, vmdl_template.txt, autoconvert.py (my scripts)
+
+1. Make sure that your mod content folder has the following folders:
+	content/hlvr_addons/[YOURMODNAME]/materials/textures
+	content/hlvr_addons/[YOURMODNAME]/models/meshes
+
+2. In autoconvert.py change "asset_root_path" to be the folder in which the script will search for bioshock files(.mat, .psk, .pskx and .tga). It will recursivly search through the subfolders aswell. 
+
+3. In autoconvert.py change "mod_content_root_path" to be the root content folder of your mod. For example: "G:\SteamLibrary\steamapps\common\Half-Life Alyx\content\hlvr_addons\[YOURMODNAME]"
+
+4. In the folder where my scripts are located run "python autoconvert.py" and (hopefully) enjoy. A logfile.txt will be created which will list all the errors to do with copying the textures(mostly missing files).
