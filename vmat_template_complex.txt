@@ -5,6 +5,7 @@ Layer0
 	shader "vr_complex.vfx"
 
 	//---- PBR ----
+	F_SELF_ILLUM [SELFILLUM BOOL INT]
 	F_SPECULAR 1
 	
 	//---- Translucent ----
@@ -38,6 +39,14 @@ Layer0
 
 	//---- Roughness ----
 	TextureRoughness "materials/default/default_rough.tga"
+
+	//---- Self Illum ----
+	g_flSelfIllumAlbedoFactor "1.000"
+	g_flSelfIllumBrightness "0.000"
+	g_flSelfIllumScale "1.000"
+	g_vSelfIllumScrollSpeed "[0.000 0.000]"
+	g_vSelfIllumTint "[1.000000 1.000000 1.000000 0.000000]"
+	TextureSelfIllumMask "[SELFILLUM TGA PATH]"
 
 	//---- Texture Coordinates ----
 	g_nScaleTexCoordUByModelScaleAxis "0"

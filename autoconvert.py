@@ -4,17 +4,28 @@ import time
 from datetime import datetime
 import subprocess
 import sys
-import pprint
 from PIL import Image
 import os
 
-asset_root_path = Path(r"G:\SteamLibrary\steamapps\common\Bioshock\UmodelExport\4-Recreation")
-mod_content_root_path = Path(r"G:\SteamLibrary\steamapps\common\Half-Life Alyx\content\hlvr_addons\bs_autoconvert_test")
+if len(sys.argv) != 3:
+    print("Incorrect usage. Correct usage: \n\tpython3 autoconvert.py \"ASSET ROOT PATH\" \"MOD CONTENT ROOT PATH\"" + 
+          "\n\nFor more details see GITHUBLINK")
+    exit(1)
+asset_root_path = Path(sys.argv[1])
+if not asset_root_path.is_dir():
+    print("Invalid asset root path. Exiting...")
+    exit(1)
+mod_content_root_path = Path(sys.argv[2])
+if not mod_content_root_path.is_dir():
+    print("Invalid mod content root path. Exiting...")
+    exit(1)
+
 
 #### SETTINGS ####
-LOG_UNDEFINED_DIFFUSE_TEXTURES = True
+LOG_UNDEFINED_DIFFUSE_TEXTURES = False
 LOG_UNDEFINED_NORMAL_MAPS = False
 LOG_UNDEFINED_OPACITY_MAPS = False
+LOG_UNDEFINED_EMISSIVE_MAPS = False
 
 #### set up directory ####
 if not (mod_content_root_path / "materials").is_dir():
@@ -126,6 +137,7 @@ def vmat_from_proptxt(proptxt_path, mod_content_root_path):
     with open(proptxt_path) as f:
         props_dict = parse_proptxt(f.read())
 
+    # handle Facing/EdgeDiffuse instead of Diffuse
     if not "Diffuse" in props_dict and "FacingDiffuse" in props_dict:
         props_dict["Diffuse"] = props_dict["FacingDiffuse"]
 
@@ -152,7 +164,7 @@ def vmat_from_proptxt(proptxt_path, mod_content_root_path):
         if LOG_UNDEFINED_NORMAL_MAPS:
             log.write("Normal map not defined in " + proptxt_path.name + "\n")
 
-    # # translucency map
+    # translucency map
     if "Opacity_Bio" in props_dict and props_dict["Opacity_Bio"]["Material"] != "None":
         trans_tga = props_dict["Opacity_Bio"]["Material"].split(".")[-1][:-1] + ".tga"
         trans_tga_path = "materials/textures/" + trans_tga[:-4] + "_trans.tga"
@@ -162,6 +174,17 @@ def vmat_from_proptxt(proptxt_path, mod_content_root_path):
 
         if LOG_UNDEFINED_OPACITY_MAPS:
             log.write("Opacity map not defined in " + proptxt_path.name + "\n")
+
+    # emissive map
+    if "EmissiveMask" in props_dict and props_dict["EmissiveMask"]["Material"] != "None":
+        selfillum_tga = props_dict["EmissiveMask"]["Material"].split(".")[-1][:-1] + ".tga"
+        selfillum_tga_path = "materials/textures/" + selfillum_tga[:-4] + "_selfillum.tga"
+    else:
+        # no emissive map specified
+        selfillum_tga_path = "materials/default/default_selfillum.tga"
+
+        if LOG_UNDEFINED_EMISSIVE_MAPS:
+            log.write("Emissive map not defined in " + proptxt_path.name + "\n")
 
     #### write to .vmat file ####
     vmat_file_name = proptxt_path.name[:-10] + ".vmat"
@@ -175,6 +198,13 @@ def vmat_from_proptxt(proptxt_path, mod_content_root_path):
             vmat = vmat.replace("[TRANS TGA PATH]", trans_tga_path)
         else:
             vmat = vmat.replace("[TRANS BOOL INT]", "0")
+
+        # turn on selfillum or not
+        if "EmissiveMask" in props_dict and props_dict["EmissiveMask"]["Material"] != "None":
+            vmat = vmat.replace("[SELFILLUM BOOL INT]", "1")
+            vmat = vmat.replace("[SELFILLUM TGA PATH]", selfillum_tga_path)
+        else:
+            vmat = vmat.replace("[SELFILLUM BOOL INT]", "0")
         
         f.write(vmat)
 
@@ -193,6 +223,12 @@ def vmat_from_proptxt(proptxt_path, mod_content_root_path):
         if "Opacity_Bio" in props_dict and props_dict["Opacity_Bio"]["Material"] != "None":
             channel = int(props_dict["Opacity_Bio"]["Channel"])
             copy_texture_channel(proptxt_path, trans_tga, trans_tga_path, channel)
+
+        # emissive map
+        # check if a emissive map is specified
+        if "EmissiveMask" in props_dict and props_dict["EmissiveMask"]["Material"] != "None":
+            channel = int(props_dict["EmissiveMask"]["Channel"])
+            copy_texture_channel(proptxt_path, selfillum_tga, selfillum_tga_path, channel)
     except Exception as e:
         log.write(str(e) + "\n")
 
