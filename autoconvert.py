@@ -6,14 +6,28 @@ import subprocess
 import sys
 import pprint
 from PIL import Image
+import os
 
 asset_root_path = Path(r"G:\SteamLibrary\steamapps\common\Bioshock\UmodelExport\4-Recreation")
 mod_content_root_path = Path(r"G:\SteamLibrary\steamapps\common\Half-Life Alyx\content\hlvr_addons\bs_autoconvert_test")
 
 #### SETTINGS ####
-LOG_UNDEFINED_DIFFUSE_TEXTURES = False
+LOG_UNDEFINED_DIFFUSE_TEXTURES = True
 LOG_UNDEFINED_NORMAL_MAPS = False
 LOG_UNDEFINED_OPACITY_MAPS = False
+
+#### set up directory ####
+if not (mod_content_root_path / "materials").is_dir():
+    os.mkdir(mod_content_root_path / "materials")
+    os.mkdir(mod_content_root_path / "materials" / "textures")
+elif not (mod_content_root_path / "materials" / "textures").is_dir():
+    os.mkdir(mod_content_root_path / "materials" / "textures")
+
+if not (mod_content_root_path / "models").is_dir():
+    os.mkdir(mod_content_root_path / "models")
+    os.mkdir(mod_content_root_path / "models" / "meshes")
+elif not (mod_content_root_path / "models" / "meshes").is_dir():
+    os.mkdir(mod_content_root_path / "models" / "meshes")
 
 #### get the vmat template ####
 with open(r"vmat_template_complex.txt") as f:
@@ -23,12 +37,16 @@ with open(r"vmat_template_complex.txt") as f:
 with open(r"vmdl_template.txt") as f:
     vmdl_template = f.read()
 
-#### log will contain any missing file errors ####
+#### set up log ####
 log = open('logfile.txt', 'a+')
 datestring = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 log.write(f"New entry: {datestring}\n")
 
 def parse_proptxt(rawstring):
+    """
+        Parses a .prop.txt file into a nice dictionary.
+    """
+
     lines = rawstring.split("\n")
     
     data_dict = {}
@@ -61,13 +79,55 @@ def parse_proptxt(rawstring):
         i += 1
     return data_dict
 
-def vmat_from_proptxt(mat_path, mod_content_root_path):
+def copy_texture(proptxt_path, texture_tga):
+    """
+        Finds and copies a texture defined in a .prop.txt file to the mod
+        content folder.
+    """
+
+    if not Path(proptxt_path.parent / texture_tga).is_file():
+        # texture is not in the same folder as mat file, go look for it
+        found_files = list(asset_root_path.glob(r"**/" + texture_tga))
+        if len(found_files) > 0:
+            shutil.copy(found_files[0], mod_content_root_path / "materials" / "textures")
+        else:
+            log.write("file " + texture_tga + " not found in asset root path(or subdirectories)\n")
+    else:
+        shutil.copy(proptxt_path.parent / texture_tga, mod_content_root_path / "materials" / "textures")
+
+def copy_texture_channel(proptxt_path, texture_tga, texture_tga_path, channel):
+    """
+        Finds and a texture channel defined in a .prop.txt file and saves it to
+        the mod content folder.
+    """
+
+    if not Path(proptxt_path.parent / texture_tga).is_file():
+        # texture is not in the same folder as mat file, go look for it
+        found_files = list(asset_root_path.glob(r"**/" + texture_tga))
+        if len(found_files) > 0:
+            texture_file = found_files[0]
+            texture = Image.open(texture_file)
+            texture.split()[channel-1].save(mod_content_root_path / texture_tga_path)
+        else:
+            log.write("file " + texture_tga + " not found in asset root path(or subdirectories)\n")
+    else:
+        texture = Image.open(proptxt_path.parent / texture_tga)
+        texture.split()[channel-1].save(mod_content_root_path / texture_tga_path)
+
+def vmat_from_proptxt(proptxt_path, mod_content_root_path):
+    """
+        Creats a .vmat file from a .prop.txt file into the mod content folder.
+    """
+
     start_time = time.time()
-    print("\tCreating .vmat file from: ", mat_path.name)
+    print("\tCreating .vmat file from: ", proptxt_path.name)
 
     #### read .mat file ####
-    with open(mat_path) as f:
+    with open(proptxt_path) as f:
         props_dict = parse_proptxt(f.read())
+
+    if not "Diffuse" in props_dict and "FacingDiffuse" in props_dict:
+        props_dict["Diffuse"] = props_dict["FacingDiffuse"]
 
     #### get names and paths of the texture files ####
     # diffuse texture
@@ -79,7 +139,7 @@ def vmat_from_proptxt(mat_path, mod_content_root_path):
         diffuse_tga_path = "materials/default/default_color.tga"
 
         if LOG_UNDEFINED_DIFFUSE_TEXTURES:
-            log.write("Diffuse texture not defined in " + mat_path.name + "\n")
+            log.write("Diffuse texture not defined in " + proptxt_path.name + "\n")
 
     # normal map
     if "NormalMap" in props_dict and props_dict["NormalMap"] != "None":
@@ -90,7 +150,7 @@ def vmat_from_proptxt(mat_path, mod_content_root_path):
         normal_tga_path = "materials/default/default_normal.tga"
 
         if LOG_UNDEFINED_NORMAL_MAPS:
-            log.write("Normal map not defined in " + mat_path.name + "\n")
+            log.write("Normal map not defined in " + proptxt_path.name + "\n")
 
     # # translucency map
     if "Opacity_Bio" in props_dict and props_dict["Opacity_Bio"]["Material"] != "None":
@@ -101,10 +161,10 @@ def vmat_from_proptxt(mat_path, mod_content_root_path):
         trans_tga_path = "materials/default/default_trans.tga"
 
         if LOG_UNDEFINED_OPACITY_MAPS:
-            log.write("Opacity map not defined in " + mat_path.name + "\n")
+            log.write("Opacity map not defined in " + proptxt_path.name + "\n")
 
     #### write to .vmat file ####
-    vmat_file_name = mat_path.name[:-10] + ".vmat"
+    vmat_file_name = proptxt_path.name[:-10] + ".vmat"
     with open(mod_content_root_path / r"materials" / vmat_file_name, "w") as f:
         vmat = vmat_template.replace("[DIFFUSE TGA PATH]", diffuse_tga_path)
         vmat = vmat.replace("[NORMAL TGA PATH]", normal_tga_path)
@@ -121,102 +181,18 @@ def vmat_from_proptxt(mat_path, mod_content_root_path):
     #### copy texture files ####
     try:
         # diffuse texture
-        # check if a diffuse texture is specified
         if "Diffuse" in props_dict and props_dict["Diffuse"] != "None":
-            if not Path(mat_path.parent / diffuse_tga).is_file():
-                # texture is not in the same folder as mat file, go look for it
-                found_diffuse_files = list(asset_root_path.glob(r"**/" + diffuse_tga))
-                if len(found_diffuse_files) > 0:
-                    shutil.copy(found_diffuse_files[0], mod_content_root_path / "materials" / "textures")
-                else:
-                    log.write("file ", diffuse_tga, " not found in asset root path(or subdirectories)\n")
-            else:
-                shutil.copy(mat_path.parent / diffuse_tga, mod_content_root_path / "materials" / "textures")
+            copy_texture(proptxt_path, diffuse_tga)
 
         # normal map
-        # check if a normal map is specified
         if "NormalMap" in props_dict and props_dict["NormalMap"] != "None":
-            if not Path(mat_path.parent / normal_tga).is_file():
-                # texture is not in the same folder as mat file, go look for it
-                found_normal_files = list(asset_root_path.glob(r"**/" + normal_tga))
-                if len(found_normal_files) > 0:
-                    shutil.copy(found_normal_files[0], mod_content_root_path / "materials" / "textures")
-                else:
-                    log.write("file ", normal_tga, " not found in asset root path(or subdirectories)\n")
-            else:
-                shutil.copy(mat_path.parent / normal_tga, mod_content_root_path / "materials" / "textures")
+            copy_texture(proptxt_path, normal_tga)
 
         # opacity map
         # check if a opacity map is specified
         if "Opacity_Bio" in props_dict and props_dict["Opacity_Bio"]["Material"] != "None":
-            if not Path(mat_path.parent / trans_tga).is_file():
-                # texture is not in the same folder as mat file, go look for it
-                found_trans_files = list(asset_root_path.glob(r"**/" + trans_tga))
-                if len(found_trans_files) > 0:
-                    trans_texture_file = found_trans_files[0]
-                    channel = int(props_dict["Opacity_Bio"]["Channel"])
-                    trans_texture = Image.open(trans_texture_file)
-                    trans_texture.split()[channel-1].save(mod_content_root_path / trans_tga_path)
-                else:
-                    log.write("file ", trans_tga, " not found in asset root path(or subdirectories)\n")
-            else:
-                channel = int(props_dict["Opacity_Bio"]["Channel"])
-                trans_texture = Image.open(mat_path.parent / trans_tga)
-                trans_texture.split()[channel-1].save(mod_content_root_path / trans_tga_path)
-
-    except Exception as e:
-        log.write(str(e) + "\n")
-
-def vmat_from_mat(mat_path, mod_content_root_path):
-    start_time = time.time()
-    print("\tCreating .vmat file from: ", mat_path.name)
-
-    #### read .mat file ####
-    with open(mat_path) as f:
-        mat_file_contents = f.read().split("\n")
-
-    #### get names and paths of the texture files ####
-    diffuse_tga = mat_file_contents[0].split("=")[1] + ".tga"
-    diffuse_tga_path = "materials/textures/" + diffuse_tga
-    if len(mat_file_contents) > 1 and "=" in mat_file_contents[1]:
-        normal_tga = mat_file_contents[1].split("=")[1] + ".tga"
-        normal_tga_path = "materials/textures/" + normal_tga
-    else:
-        # no normal map specified
-        normal_tga_path = "materials/default/default_normal.tga"
-
-    #### write to .vmat file ####
-    vmat_file_name = mat_path.name[:-4] + ".vmat"
-    with open(mod_content_root_path / r"materials" / vmat_file_name, "w") as f:
-        vmat = vmat_template.replace("[DIFFUSE TGA PATH]", diffuse_tga_path)
-        vmat = vmat.replace("[NORMAL TGA PATH]", normal_tga_path)
-        f.write(vmat)
-
-    #### copy texture files ####
-    try:
-        # diffuse texture
-        if not Path(mat_path.parent / diffuse_tga).is_file():
-            # texture is not in the same folder as mat file, go look for it
-            found_diffuse_files = list(asset_root_path.glob(r"**/" + diffuse_tga))
-            if len(found_diffuse_files) > 0:
-                shutil.copy(found_diffuse_files[0], mod_content_root_path / "materials" / "textures")
-            else:
-                log.write("file ", diffuse_tga, " not found in asset root path(or subdirectories)\n")
-        else:
-            shutil.copy(mat_path.parent / diffuse_tga, mod_content_root_path / "materials" / "textures")
-
-        # normal map
-        if len(mat_file_contents) > 1 and "=" in mat_file_contents[1]:
-            # check if a normal map is specified
-            if not Path(mat_path.parent / normal_tga).is_file():
-                # texture is not in the same folder as mat file, go look for it
-                found_normal_files = list(asset_root_path.glob(r"**/" + normal_tga))
-                if len(found_normal_files) > 0:
-                    shutil.copy(found_normal_files[0], mod_content_root_path / "materials" / "textures")
-                else:
-                    log.write("file ", normal_tga, " not found in asset root path(or subdirectories)\n")
-            else:
-                shutil.copy(mat_path.parent / normal_tga, mod_content_root_path / "materials" / "textures")
+            channel = int(props_dict["Opacity_Bio"]["Channel"])
+            copy_texture_channel(proptxt_path, trans_tga, trans_tga_path, channel)
     except Exception as e:
         log.write(str(e) + "\n")
 
