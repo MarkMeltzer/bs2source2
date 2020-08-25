@@ -35,6 +35,8 @@ See the following link for a demonstration: https://youtu.be/_TiCz_8QooM
 # Known bugs/Todo:
 - automatically figure out wether to use translucency or alpha check
 - automatically add hulls to vmdls
+- add options to not overwrite existing files (should speed up the whole process when converting the assets of multiple levels, since a lot of assets are duplicated across levels)
+- add options to only to part of the conversion (creating vmats, copying textures, creating vmdls, converting meshes)
 
 # Notes:
 - When a model seems to kind of show through itself, open the corresponding material and swap translucency for alpha check.
