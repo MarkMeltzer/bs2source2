@@ -30,10 +30,10 @@ See the following link for a demonstration: https://youtu.be/_TiCz_8QooM
 ### Converting the assets to Source 2:
 1. Download the files of this repository and extract them anywhere.
 2. Open a commandline window where you extracted the files and run the following command: ```python3  autoconvert.py "ASSET ROOT" "MOD CONTENT ROOT"``` where **"ASSET ROOT"** is the folder containing assets or subfolders containing the assets (by default this would be *some path/UmodelExport*) and **"MOD CONTENT ROOT"** is the root folder of the content folder of your mod (for example: *G:\SteamLibrary\steamapps\common\Half-Life Alyx\content\hlvr_addons\my_cool_mod*). Both should be enclosed in quotation marks.
-3. The source 2 tools will compile the assets when trying to show them in the asset viewer. So looking at all the assets at once in the asset viewer will cause your PC to slow down or the source 2 tools to crash. Either slowley scroll through the assets in the asset browser or simply search for the once you want to use. Once the assets have been compiled, all is dandy.
+3. The source 2 tools will compile the assets when trying to show them in the asset viewer. So looking at all the assets at once in the asset viewer will cause your PC to slow down or the source 2 tools to crash. Either slowly scroll through the assets in the asset browser or simply search for the once you want to use. Once the assets have been compiled, all is dandy.
 
 # Known bugs/Todo:
-- automatically figure out wether to use translucency or alpha check
+- automatically figure out wether to use translucency or alpha check (this currently causes some models to show through themselves)
 - automatically add hulls to vmdls
 - add options to not overwrite existing files (should speed up the whole process when converting the assets of multiple levels, since a lot of assets are duplicated across levels)
 - add options to only to part of the conversion (creating vmats, copying textures, creating vmdls, converting meshes)
